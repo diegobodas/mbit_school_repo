@@ -1,0 +1,8 @@
+spark-submit --master yarn --deploy-mode client --executor-memory 1g --name SparkPythonWordCount --conf "spark.app.id=SparkPythonWordCount" SparkPythonWordCount.py hdfs://localhost:8020/user/cloudera/books/Quijote.txt hdfs://localhost:8020/user/cloudera/books/salidaPython 2
+
+hdfs dfs -ls hdfs://localhost:8020/user/cloudera/books/salidaPython
+
+hdfs dfs -cat hdfs://localhost:8020/user/cloudera/books/salidaPython/part-00000
+
+
+

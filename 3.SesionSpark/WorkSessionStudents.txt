@@ -1,0 +1,100 @@
+Máquina Virtual con Parcels instalados: https://mab.to/36sYeprlZ
+
+Reinciar equipo
+
+Lanzar procesos:
+
+sudo /home/cloudera/cloudera-manager --force --express
+
+Entrar en Cloudera Manager.
+
+Parar todos los servicios.
+
+Iniciar servicios y en este orden: HDFS, Yarn, Spark (yo tengo parado el cloudera manager).
+
+Comprueba que has instalado bien los parcels de Anaconda y CDH
+
+Bajar el Quijote del proyecto Gutenberg:
+http://www.gutenberg.org/cache/epub/2000/pg2000.txt
+
+Llevar el archivo de texto a HDFS (a un directorio llamado books (por ejemplo), dentro de /usr/cloudera).
+Hazlo paso a paso para repasar. 
+1) Crea directorio books.
+2) Lleva allí archivo hdfs.
+3) Si lo habéis hecho bien, esto tiene que funcionar sin problemas: 
+
+$ hdfs dfs -cat Quijote.txt books/Quijote.txt
+
+Comprobar que se ha copiado bien en HDFS de dos formas. Mediante la consola y mediante el interfaz gráfico.
+
+Probar scala pero desde Spark. Ejecuta:
+
+$ spark-shell
+
+(puede dar fallos de hive, no te preocupes de momento)
+
+scala> val myfile = sc.textFile("hdfs://localhost:8020/user/cloudera/books/Quijote.txt")
+
+scala> val counts = myfile.flatMap(line => line.split(" ")).map(word => (word, 1)).reduceByKey(_ + _)
+scala> counts.saveAsTextFile("hdfs://localhost:8020/user/cloudera/books/output")
+scala> exit
+
+Haz un cat de algún archivo de texto dentro de output para ver lo que ha hecho...
+
+Ejercicio1:
+
+a) ¿Cuántos archivos reducers salen?
+b) ¿Cómo hacer que salgan 5? val counts=myfile.flatMap(line => line.split(" ")).map(word => (word,1)).reduceByKey((_+_),5)
+c) ¿Has visto por algún sitio restos de la evaluación difusa?
+d) ¿Recuerdas el ejercicio del reduceByLeft de las transparencias? ¿Podrías probar si funciona aquí y qué devuelve?
+e) Avisa al profesor. STOP. Primer repaso a lo realizado hasta ahora. 
+
+
+Ahora vamos a probar pyspark. Ejecuta:
+
+$ pyspark
+
+>>> myfile = sc.textFile("hdfs://localhost:8020/user/cloudera/books/Quijote.txt")
+>>> counts = myfile.flatMap(lambda line: line.split(" ")).map(lambda word: (word, 1)).reduceByKey(lambda v1,v2: v1 + v2)
+>>> counts.saveAsTextFile("hdfs://localhost:8020/user/cloudera/books/output")
+
+>>> exit()
+
+POSIBLES PROBLEMAS:
+
+Python in worker has different version 2.6 than that in driver 2.7
+
+Nos bajamos Anaconda (version 2.7). Fijaros en la ruta de debajo dónde lo he instalado.
+https://www.continuum.io/Downloads
+
+(otra opción sería jugar con la ruta: /opt/cloudera/parcels/Anaconda)
+
+Asegurarse de que tenemos python 2.7 en local
+alias python=/home/cloudera/anaconda2/bin/python2.7
+export PYSPARK_PYTHON=/home/cloudera/anaconda2/bin/python2.7 
+export SPARK_HOME=/opt/cloudera/parcels/CDH-5.10.0-1.cdh5.10.0.p0.41/lib/spark
+
+Borrar directorios no necesarios: ejemplo; hadoop fs -rm -r  books/output2
+
+hdfs dfs -ls books/output
+hdfs dfs -cat books/output
+
+--- jugar con un cat leyendo lo que ha hecho.
+
+Ahora vamos a trabajar con Notebooks. En la consola sigue las siguientes instrucciones.
+
+$ export PYSPARK_DRIVER_PYTHON=/opt/cloudera/parcels/Anaconda/bin/jupyter 
+
+$ export PYSPARK_DRIVER_PYTHON_OPTS="notebook --NotebookApp.open_browser=False --NotebookApp.ip='*' --NotebookApp.port=8880"
+
+$ export PYSPARK_PYTHON=/opt/cloudera/parcels/Anaconda/bin/python
+
+$ export PATH=/opt/cloudera/parcels/Anaconda/bin:$PATH
+
+Teclear pyspark - (si se quiere paquete csv: pyspark --packages com.databricks:spark-csv_2.10:1.2.0)
+
+http://localhost:8880/ in a browser
+
+---
+
+Avisar al profesor antes de empezar con los notebooks

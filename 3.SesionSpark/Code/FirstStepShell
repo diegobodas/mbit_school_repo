@@ -1,0 +1,50 @@
+Copia - lo que sea a hdfs
+hdfs dfs -mkdir books
+hdfs dfs -copyFromLocal Downloads/Quijote.txt books/Quijote.txt
+(cuidado con la / detrás de books, porque nos podemos ir a la raíz)
+
+hdfs dfs -cat books/Quijote.txt
+
+--- SERVICIOS NECESARIOS: HDFS + YARN + SPARK (Y EN ESTE ORDEN)
+Si no está Hive levantado también puede dar algunos problemas.
+
+Lanza el shell: spark-shell
+
+Ejecuta: 
+scala> val myfile = sc.textFile("hdfs://localhost:8020/user/cloudera/books/Quijote.txt")
+
+scala> val counts = myfile.flatMap(line => line.split(" ")).map(word => (word, 1)).reduceByKey(_ + _)
+scala> counts.saveAsTextFile("hdfs://localhost:8020/user/cloudera/books/output")
+
+scala> exit
+
+--- jugar con un cat leyendo lo que ha hecho.
+
+
+
+Con Python
+
+$ pyspark
+
+>>> myfile = sc.textFile("hdfs://localhost:8020/user/cloudera/books/Quijote.txt")
+>>> counts = myfile.flatMap(lambda line: line.split(" ")).map(lambda word: (word, 1)).reduceByKey(lambda v1,v2: v1 + v2)
+>>> counts.saveAsTextFile("hdfs://localhost:8020/user/cloudera/books/output")
+
+>>> exit()
+
+hdfs dfs -ls books/output
+hdfs dfs -cat books/output
+
+
+POSIBLES PROBLEMAS:
+
+Python in worker has different version 2.6 than that in driver 2.7
+
+Asegurarse de que tenemos python 2.7 en local
+alias python=/home/cloudera/anaconda2/bin/python2.7
+export PYSPARK_PYTHON=/home/cloudera/anaconda2/bin/python2.7 
+export SPARK_home=/opt/cloudera/parcels/CDH-5.8.0-1.cdh5.8.0.p0.42/lib/spark
+#####chmod 777 /root/anaconda2/bin/python2.7
+
+Borrar directorios no necesarios: hadoop fs -rm -r  books/output2
+

@@ -1,0 +1,141 @@
+---
+title: "Intro to Spark with R"
+author: "Diego J. Bodas Sagi"
+date: "02/08/2017"
+output: html_document
+---
+
+# Introducción
+En este documento explicaremos los pasos básicos para interactuar con Spark desde R. Comencemos instalando y cargando las librerías necesarias. Vamos a seguir ejemplos explicados en la web de cloudera: http://blog.cloudera.com/blog/2016/09/introducing-sparklyr-an-r-interface-for-apache-spark/
+
+El desarrollo para Spark desde R está avanzando poco a poco. El que más adelantado está es databrick, quien está apostando muy fuerte por SparkR. Cloudera ha creado un interfaz propio para intentar salir al paso llamado "sparklyr". 
+
+Para instalar las librerías debemos ejecutar los siguientes pasos.
+
+```{r, eval=FALSE}
+# Explicamos cómo instalar el paquete devtools
+# Primero, asegúrate de que el sistema tiene las librerías requeridas
+# sudo yum install libcurl
+# sudo yum install libcurl_devel
+install.packages("devtools", repos = "http://cran.us.r-project.org")
+```
+
+```{r, eval=FALSE}
+# debes tener instalado el paquete devtools
+devtools::install_github('apache/spark@v1.6.0', subdir='R/pkg')
+install.packages('sparklyr', repos = "http://cran.us.r-project.org")
+```
+
+Ahorar podemos cargar las librerías. 
+
+```{r, eval=FALSE}
+library(SparkR) # Parece ser! que es una dependencia
+#install spark-1.6.2-bin-hadoop2.6
+# spark_install()
+library(sparklyr)
+```
+
+Configuremos algunas variables de entorno
+
+```{r, eval=FALSE}
+Sys.setenv(SPARK_HOME='/usr/lib/spark')
+Sys.setenv(SPARK_HOME_VERSION='1.6.0')
+Sys.setenv(HADOOP_CONF_DIR='/etc/hadoop/conf.cloudera.hdfs')
+Sys.setenv(YARN_CONF_DIR='/etc/hadoop/conf.cloudera.yarn')
+```
+
+Conecta
+
+```{r, eval=FALSE}
+# lo de abajo es lo que recomienda Cloudera, pero casca!!!
+# sc <- spark_connect(master = "local")
+# Esto parece que funciona
+sc <- spark_connect(master = "yarn-client")
+```
+
+
+Instalemos paquetes que nos permitirán tener datos para jugar.
+
+```{r, eval=FALSE}
+install.packages(c("nycflights13", "Lahman"), repos = "http://cran.us.r-project.org")
+```
+
+Ahora hagamos algo con esto. Nos interesa interactuar con HDFS.
+
+```{r, eval=FALSE}
+library(dplyr) 
+# nos vamos a llevar algo a spark
+iris_tbl <- copy_to(sc, iris, "iris_name", overwrite = TRUE)
+# Búscalo en HDFS
+# ¿Dónde está?
+# ¿Quizá en memoria porque esto es Spark? ¿Directorio tmp?
+# ¿Quieres llevarlo a hdfs?
+Sys.setenv(HADOOP_CMD = '/usr/bin/hadoop')
+devtools::install_github('RevolutionAnalytics/rhdfs', ref='master', subdir='pkg')
+library(rhdfs)
+hdfs.init()
+myHDFSfile <- hdfs.file("/user/cloudera/kk", "w")
+hdfs.write(iris, myHDFSfile)
+hdfs.close(myHDFSfile)
+```
+
+Ahora deberías ver la información que has volcado a HDFS.
+
+# Leer ficheros de HDFS
+
+¿Podremos llevar a Spark algo que está en HDFS? Consulta spark_read_csv (los formatos permitidos son csv, json y parquet (columnar))
+
+# Usando Spark
+
+Sigamos jugando con esto (prueba en tu tiempo libre las funciones spark_read).
+
+
+```{r, eval=FALSE}
+flights_tbl <- copy_to(sc, nycflights13::flights, "flights", overwrite = TRUE) 
+batting_tbl <- copy_to(sc, Lahman::Batting, "batting", overwrite = TRUE)
+```
+
+Aplica algunos filtros y saca un gráfico
+
+```{r, eval=FALSE}
+# filter by departure delay 
+flights_tbl %>% filter(dep_delay == 2)
+delay <- flights_tbl %>% 
+  group_by(tailnum) %>%
+  summarise(count = n(), dist = mean(distance), delay = mean(arr_delay)) %>%
+  filter(count > 20, dist < 2000, !is.na(delay)) %>%
+  collect()
+ 
+# plot delays
+library(ggplot2)
+ggplot(delay, aes(dist, delay)) +
+  geom_point(aes(size = count), alpha = 1/2) +
+  geom_smooth() +
+  scale_size_area(max_size = 2)
+```
+
+Hagamos algo ahora con MLlib, una regresión sencilla.
+
+```{r, eval=FALSE}
+# copy mtcars into spark
+mtcars_tbl <- copy_to(sc, mtcars)
+ 
+# transform our data set, and then partition into 'training', 'test'
+partitions <- mtcars_tbl %>%
+  filter(hp >= 100) %>%
+  mutate(cyl8 = cyl == 8) %>%
+  sdf_partition(training = 0.5, test = 0.5, seed = 1099)
+ 
+# fit a linear model to the training dataset
+fit <- partitions$training %>%
+  ml_linear_regression(response = "mpg", features = c("wt", "cyl"))
+summary(fit)
+```
+
+Por supuesto, di adios a Spark
+
+```{r, eval=FALSE}
+spark_disconnect(sc)
+```
+
+
